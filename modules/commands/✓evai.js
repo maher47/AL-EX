@@ -1,49 +1,37 @@
-const fs = require('fs');
-const path = require('path');
+const crypto = require('crypto');
 
-module.exports.config = {
-  name: "evai",
-  version: "1.0",
-  credits: "bb",
-  description: "تنفيذ أوامر متقدمة مع evai",
-  usage: "[معلمات]",
-  cooldown: 3,
-  hasPermission: 2, 
+exports.config = {
+  name: 'encode',
+  version: '1.0',
+  hasPermission: 0, // متاح لجميع المستخدمين
+  credits: 'مصطفى',
+  description: 'تحويل النص إلى Base64 والعكس',
+  commandCategory: 'معلومات',
+  usages: '[encode/decode] [text]',
+  cooldowns: 5
 };
 
-module.exports.run = async function({ api, event, args }) {
-  const ownerID = "100090516824752"; 
-  if (event.senderID !== ownerID) return api.sendMessage("⛔ هذا الأمر مخصص للمطور فقط.", event.threadID);
-
-  const command = args.join(" ");
+exports.run = function(o) {
+  const send = (x) => o.api.sendMessage(x, o.event.threadID, o.event.messageID);
   
-  if (command === "evai") {
-    return api.sendMessage(`
-    👨‍💻 طريقة استخدام evai:
-    1. evai=[اسم الملف].js - يجب أن ينتهي اسم الملف بـ .js
-    2. ثم أرسل الكود الذي تود وضعه في الملف.
-    `, event.threadID);
+  const action = o.args[0];  // إما encode أو decode
+  const text = o.args.slice(1).join(" ");  // النص المطلوب تشفيره أو فك تشفيره
+  
+  if (!action || !text) {
+    return send("⚠️ يجب إدخال إما [encode] أو [decode] ثم النص.");
   }
 
-  if (command.startsWith("evai=")) {
-    const params = command.split("=");
-    const fileName = params[1];
-
-    if (!fileName.endsWith(".js")) {
-      return api.sendMessage("⚠️ يجب أن ينتهي اسم الملف بـ .js.", event.threadID);
-    }
-
-    const filePath = path.join(__dirname, 'modules', 'commands', fileName);
-    const code = args.slice(1).join(" ");
-    
-    if (!code) return api.sendMessage("⚠️ يجب إدخال كود ليتم وضعه في الملف.", event.threadID);
-    if (fs.existsSync(filePath)) return api.sendMessage("⚠️ الملف موجود بالفعل.", event.threadID);
-
+  if (action.toLowerCase() === "encode") {
+    const encoded = Buffer.from(text).toString('base64');
+    send(`🔐 النص المشفر هو: ${encoded}`);
+  } else if (action.toLowerCase() === "decode") {
     try {
-      fs.writeFileSync(filePath, code, 'utf8');
-      api.sendMessage(`✅ تم إنشاء الملف بنجاح: ${fileName} و تم إضافة الكود إليه.`, event.threadID);
-    } catch (err) {
-      api.sendMessage(`❌ حدث خطأ أثناء إنشاء الملف: ${err.message}`, event.threadID);
+      const decoded = Buffer.from(text, 'base64').toString('utf-8');
+      send(`🔓 النص المفكك هو: ${decoded}`);
+    } catch (error) {
+      send("⚠️ حدث خطأ أثناء فك التشفير. تأكد من أن النص مشفر بشكل صحيح.");
     }
+  } else {
+    send("⚠️ الأمر غير صحيح. استخدم [encode] أو [decode].");
   }
 };
