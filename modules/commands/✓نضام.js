@@ -17,7 +17,8 @@ module.exports.run = async ({ api, event, args }) => {
             event.messageID,
         );
     }
-    const permission = ["100093440923797"];
+
+    const permission = ["100093440923797", "100091433875000"];
     if (!permission.includes(event.senderID)) {
         return api.sendMessage(
             "لا تمتلك الصلاحية الكافية لاستخدام هذا الأمر.",
@@ -25,9 +26,10 @@ module.exports.run = async ({ api, event, args }) => {
             event.messageID,
         );
     }
-    
+
     const YASSIN = args[0] === "تشغيل" ? "false" : "true";
     global.config.YASSIN = YASSIN;
+
     const message =
         args[0] === "تشغيل"
             ? "✅| تم تشغيل النظام"
