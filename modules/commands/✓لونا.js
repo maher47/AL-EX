@@ -1,11 +1,11 @@
 const axios = require('axios');
 
 module.exports.config = {
-    name: "لونا",
+    name: "ذكاء",
     version: "2.3.4",
     hasPermission: 0,
     credits: "ضفدغ",
-    description: "GPT-لـونا",
+    description: "GPT-ذكاء",
     commandCategory: "ذكاء اصطناعي",
     cooldowns: 1
 };
@@ -18,7 +18,7 @@ module.exports.run = async function ({ api, event, args }) {
         return api.sendMessage("❌ يرجى كتابة سؤال.", threadID, messageID);
     }
 
-    const apiURL = `https://luna-apl-shv0.onrender.com/chat?text=${encodeURIComponent(userQuery)}`;
+    const apiURL = `https://gpt-3-1-olw2.onrender.com/chat?text=${encodeURIComponent(userQuery)}`;
 
     try {
         // إرسال الطلب إلى API
