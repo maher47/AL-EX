@@ -4,9 +4,12 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     logger = require("../../utils/log.js");
   const moment = require("moment-timezone");
 
+  // تخزين عدد مرات إرسال أمر غير معروف لكل مستخدم في كل محادثة
+  const unknownCommandCounter = new Map();
+
   return async function ({ event }) {
     const dateNow = Date.now();
-    const time = moment.tz("Asia/Manila").format("HH:MM:ss DD/MM/YYYY");
+    const time = moment.tz("Asia/Manila").format("HH:mm:ss DD/MM/YYYY");
     const { allowInbox, PREFIX, ADMINBOT, DeveloperMode, adminOnly, YASSIN } = global.config;
 
     const { userBanned, threadBanned, threadInfo, threadData, commandBanned } = global.data;
@@ -19,7 +22,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     const threadSetting = threadData.get(threadID) || {};
     const prefix = threadSetting.hasOwnProperty("PREFIX") ? threadSetting.PREFIX : PREFIX;
 
-    if (!body || !body.startsWith(prefix)) return; // هنا جعلنا البوت يشتغل فقط لو الرسالة تبدأ بالبادئة
+    if (!body || !body.startsWith(prefix)) return; // البوت يشتغل فقط لو الرسالة تبدأ بالبادئة
 
     const prefixRegex = new RegExp(`^${escapeRegex(prefix)}`);
     const matchedPrefix = body.match(prefixRegex)[0];
@@ -31,17 +34,21 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     if (YASSIN === "true" && !ADMINBOT.includes(senderID)) return;
 
     if (!command) {
-      var allCommandName = [];
-      const commandValues = commands.keys();
-      for (const cmd of commandValues) allCommandName.push(cmd);
+      var allCommandName = Array.from(commands.keys());
       const checker = stringSimilarity.findBestMatch(commandName, allCommandName);
 
-      if (checker.bestMatch.rating >= 0.8) {
-        command = global.client.commands.get(checker.bestMatch.target);
+      const userKey = `${senderID}_${threadID}`;
+      const prev = unknownCommandCounter.get(userKey) || 0;
+
+      if (prev === 0) {
+        api.sendMessage(`✅| ه‍ا..؟ غـيـر مـوجـود هـلا قـصـدک`, threadID, messageID);
+        unknownCommandCounter.set(userKey, 1);
       } else {
-        api.sendMessage(`The command '${commandName}' is not recognized. Did you mean '${checker.bestMatch.target}'?`, threadID, messageID);
-        return;
+        api.sendMessage(`هاهاها 😂 غير موجود يا ذكي! 🤔 يمكن كنت تقصد 🔍`, threadID, messageID);
+        unknownCommandCounter.set(userKey, 0);
       }
+
+      return;
     }
 
     if (userBanned.has(senderID) || threadBanned.has(threadID) || (allowInbox === false && senderID == threadID)) {
