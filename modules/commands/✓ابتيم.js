@@ -3,21 +3,23 @@ module.exports.config = {
   version: "1.0.0",
   hasPermssion: 0,
   credits: "Mustapha",
-  description: "عرض معلومات السيرفر",
+  description: "عرض معلومات السيرفر وعدد المجموعات والمستخدمين",
   commandCategory: "النظام",
   usages: "ابتيم",
   cooldowns: 3
 };
 
-module.exports.run = async function ({ api, event }) {
+module.exports.run = async function ({ api, event, Threads, Users }) {
   const os = require("os");
   const moment = require("moment-timezone");
 
+  // بيانات مدة التشغيل
   const uptime = process.uptime();
   const hours = Math.floor(uptime / 3600);
   const minutes = Math.floor((uptime % 3600) / 60);
   const seconds = Math.floor(uptime % 60);
 
+  // بيانات الرام والمعالج
   const totalMem = (os.totalmem() / 1024 / 1024).toFixed(0);
   const freeMem = (os.freemem() / 1024 / 1024).toFixed(0);
   const usedMem = totalMem - freeMem;
@@ -27,6 +29,13 @@ module.exports.run = async function ({ api, event }) {
   const cpuCores = os.cpus().length;
   const osType = `${os.type()} ${os.release()}`;
   const currentTime = moment.tz("Africa/Algiers").format("YYYY-MM-DD | HH:mm:ss");
+
+  // عدد المجموعات وعدد المستخدمين
+  const allThreads = await Threads.getAll();
+  const totalGroups = allThreads.length;
+
+  const allUsers = await Users.getAll();
+  const totalUsers = allUsers.length;
 
   const message = `
 == 📊 بيانات السيرفر 📊 ==
@@ -46,7 +55,11 @@ module.exports.run = async function ({ api, event }) {
 📊 استهلاك الرام: ${memUsage}% ✅
 
 🕰️ الوقت الحالي: ${currentTime} ✅
+
+👥 عدد المستخدمين في البوت: ${totalUsers} ✅
+
+📚 عدد المجموعات في البوت: ${totalGroups} ✅
 `;
 
-  api.sendMessage(message, event.threadID, event.messageID);
+  return api.sendMessage(message, event.threadID, event.messageID);
 };
