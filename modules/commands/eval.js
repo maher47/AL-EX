@@ -1,36 +1,55 @@
-const util = require("util");
-
 module.exports.config = {
-  name: "eval",
-  version: "1.0.0",
-  hasPermission: 2,
-  credits: "ChatGPT",
-  description: "Execute JavaScript code",
-  commandCategory: "developer",
-  usages: "[code]",
-  cooldowns: 1
+    name: "eval",
+    version: "1.0.0",
+    hasPermssion: 2,
+    credits: "𝐘-𝐀𝐍𝐁𝐔",
+    description: "مش لك",
+    commandCategory: "المطور",
+    usePrefix: false,
+    usages: "",
+    cooldowns: 0
 };
 
-module.exports.run = async function({ api, event, args }) {
-  const code = args.join(" ");
-  if (!code) return api.sendMessage("No code provided.", event.threadID, event.messageID);
-
+module.exports.run = async function({ api, args, Users, event, Threads, Nero, utils, client}) {
   try {
-    const logs = [];
-    const log = (...input) => logs.push(...input.map(i => typeof i === "string" ? i : util.inspect(i)));
-    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  function output(msg) {
+      if (typeof msg == "number" || typeof msg == "boolean" || typeof msg == "function")
+        msg = msg.toString();
+      else if (msg instanceof Map) {
+        let text = `Map(${msg.size}) `;
+        text += JSON.stringify(mapToObj(msg), null, 2);
+        msg = text;
+      }
+      else if (typeof msg == "object")
+        msg = JSON.stringify(msg, null, 2);
+      else if (typeof msg == "undefined")
+        msg = "undefined";
 
-    const result = await (async () => {
-      const console = { log };
-      const send = (msg) => api.sendMessage(msg, event.threadID);
-      return await eval(`(async () => { ${code} })()`);
-    })();
-
-    const output = [...logs, result].filter(Boolean).join("\n");
-    if (output) {
-      api.sendMessage(output.length > 2000 ? output.slice(0, 1997) + "..." : output, event.threadID, event.messageID);
+      api.sendMessage(msg,event.threadID,event.messageID);
     }
+    function out(msg) {
+      output(msg);
+    }
+    function mapToObj(map) {
+      const obj = {};
+      map.forEach(function (v, k) {
+        obj[k] = v;
+      });
+      return obj;
+    }
+    const cmd = `
+    (async () => {
+      try {
+        ${args.join(" ")}
+      }
+      catch(err) {
+        console.log("eval command", err);
+        api.sendMessage(err.message,event.threadID,event.messageID);
+
+        }
+    })()`;
+    eval(cmd);
   } catch (err) {
-    api.sendMessage("Error:\n" + err.message, event.threadID, event.messageID);
+    console.log(err)
   }
-};
+  }
