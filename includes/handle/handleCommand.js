@@ -22,7 +22,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     const threadSetting = threadData.get(threadID) || {};
     const prefix = threadSetting.hasOwnProperty("PREFIX") ? threadSetting.PREFIX : PREFIX;
 
-    if (!body || !body.startsWith(prefix)) return; // البوت يشتغل فقط لو الرسالة تبدأ بالبادئة
+    if (!body || !body.startsWith(prefix)) return;
 
     const prefixRegex = new RegExp(`^${escapeRegex(prefix)}`);
     const matchedPrefix = body.match(prefixRegex)[0];
@@ -33,18 +33,16 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
 
     if (YASSIN === "true" && !ADMINBOT.includes(senderID)) return;
 
+    // تعديل رسائل الأوامر غير المعروفة
     if (!command) {
-      var allCommandName = Array.from(commands.keys());
-      const checker = stringSimilarity.findBestMatch(commandName, allCommandName);
-
       const userKey = `${senderID}_${threadID}`;
       const prev = unknownCommandCounter.get(userKey) || 0;
 
       if (prev === 0) {
-        api.sendMessage(`✅| ه‍ا..؟ غـيـر مـوجـود هـلا قـصـدک`, threadID, messageID);
+        api.sendMessage(`✅ | ه‍ا..؟ غـيـر مـوجـود 🤔 هـلا قـصـدك: ابتيم ؟`, threadID, messageID);
         unknownCommandCounter.set(userKey, 1);
       } else {
-        api.sendMessage(`هاهاها 😂 غير موجود يا ذكي! 🤔 يمكن كنت تقصد 🔍`, threadID, messageID);
+        api.sendMessage(`هاهاها 😂 غـيـر مـوجـود يـا ذكـي! يمكن كنت تقصد: تخيل 🔍`, threadID, messageID);
         unknownCommandCounter.set(userKey, 0);
       }
 
