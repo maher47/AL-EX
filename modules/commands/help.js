@@ -1,14 +1,18 @@
+const axios = require("axios");
+const fs = require("fs-extra");
+const path = require("path");
+
 module.exports.config = {
 	name: "اوامر",
-	version: "1.0.2",
+	version: "1.0.3",
 	hasPermssion: 0,
-	credits: "انس",
-	description: "قاءمة الاوامر",
+	credits: "انس + SEIKO",
+	description: "قائمة الاوامر + صورة عشوائية",
 	commandCategory: "نضام",
 	usages: "[Name module]",
 	cooldowns: 5,
 	envConfig: {
-		autoUnsend: true,
+		autoUnsend: false,  // تعطيل حذف الرسائل التلقائي
 		delayUnsend: 20
 	}
 };
@@ -23,25 +27,45 @@ module.exports.languages = {
 	}
 };
 
-module.exports.handleEvent = function ({ api, event, getText }) {
-	const { commands } = global.client;
-	const { threadID, messageID, body } = event;
+async function downloadImage(url, filename) {
+	const filepath = path.join(__dirname, "cache", filename);
+	await fs.ensureDir(path.join(__dirname, "cache"));
+	const response = await axios({
+		url,
+		responseType: "stream"
+	});
+	return new Promise((resolve, reject) => {
+		const writer = fs.createWriteStream(filepath);
+		response.data.pipe(writer);
+		writer.on("finish", () => resolve(filepath));
+		writer.on("error", reject);
+	});
+}
 
-	if (!body || typeof body == "cmd" || body.indexOf("help") != 0) return;
-	const splitBody = body.slice(body.indexOf("help")).trim().split(/\s+/);
-	if (splitBody.length == 1 || !commands.has(splitBody[1].toLowerCase())) return;
-	const threadSetting = global.data.threadData.get(parseInt(threadID)) || {};
-	const command = commands.get(splitBody[1].toLowerCase());
-	const prefix = (threadSetting.hasOwnProperty("PREFIX")) ? threadSetting.PREFIX : global.config.PREFIX;
-	return api.sendMessage(getText("moduleInfo", command.config.name, command.config.description, `${prefix}${command.config.name} ${(command.config.usages) ? command.config.usages : ""}`, command.config.commandCategory, command.config.cooldowns, ((command.config.hasPermssion == 0) ? getText("user") : (command.config.hasPermssion == 1) ? getText("adminGroup") : getText("adminBot")), command.config.credits), threadID, messageID);
-};
+const imageLinks = [
+	"https://files.catbox.moe/itylin.jpg",
+	"https://files.catbox.moe/z871c3.jpg",
+	"https://files.catbox.moe/1x1tw9.jpg",
+	"https://files.catbox.moe/27k9rl.jpg"
+];
 
-module.exports.run = function({ api, event, args, getText }) {
+let unusedImages = [...imageLinks];
+
+function getRandomImage() {
+	if (unusedImages.length === 0) {
+		unusedImages = [...imageLinks];
+	}
+	const index = Math.floor(Math.random() * unusedImages.length);
+	const image = unusedImages[index];
+	unusedImages.splice(index, 1);
+	return image;
+}
+
+module.exports.run = async function ({ api, event, args, getText }) {
 	const { commands } = global.client;
 	const { threadID, messageID } = event;
 	const command = commands.get((args[0] || "").toLowerCase());
 	const threadSetting = global.data.threadData.get(parseInt(threadID)) || {};
-	const { autoUnsend, delayUnsend } = global.configModule[this.config.name];
 	const prefix = (threadSetting.hasOwnProperty("PREFIX")) ? threadSetting.PREFIX : global.config.PREFIX;
 
 	if (!command) {
@@ -50,27 +74,31 @@ module.exports.run = function({ api, event, args, getText }) {
 		const numberOfOnePage = 100;
 		let msg = "『 ✨ قائمة الأوامر - SEIKO ✨ 』\n\n";
 
-		for (var [name, value] of (commands)) {
-			arrayInfo.push(name);
-		}
-
-		arrayInfo.sort((a, b) => a.localeCompare(b)); // Sort alphabetically
-
+		for (const [name] of commands) arrayInfo.push(name);
+		arrayInfo.sort((a, b) => a.localeCompare(b));
 		const startSlice = numberOfOnePage * page - numberOfOnePage;
 		const returnArray = arrayInfo.slice(startSlice, startSlice + numberOfOnePage);
-
-		for (let item of returnArray) {
-			msg += `📁 ➪ ${item}\n`;
-		}
+		for (const item of returnArray) msg += `📁 ➪ ${item}\n`;
 
 		const text = `\n⌛ عدد الأوامر: ${arrayInfo.length}\n👨‍💻 المطور: SEIKO DEV\n\n𝕋𝕐ℙ𝔼: °${prefix}ℍ𝔼𝕃ℙ°\nصــفـــحــة: (${page}/${Math.ceil(arrayInfo.length / numberOfOnePage)})`;
-		return api.sendMessage(msg + text, threadID, async (error, info) => {
-			if (autoUnsend) {
-				await new Promise(resolve => setTimeout(resolve, delayUnsend * 1000)); // Fixed delay to milliseconds
-				return api.unsendMessage(info.messageID);
-			} else return;
-		});
+
+		try {
+			const randomURL = getRandomImage();
+			const imgPath = await downloadImage(randomURL, `random_command_${Date.now()}.jpg`);
+			return api.sendMessage({
+				body: msg + text,
+				attachment: fs.createReadStream(imgPath)
+			}, threadID);
+		} catch (e) {
+			console.error("❌ فشل تحميل الصورة:", e);
+			return api.sendMessage(msg + text, threadID, messageID);
+		}
 	}
 
-	return api.sendMessage(getText("moduleInfo", command.config.name, command.config.description, `${prefix}${command.config.name} ${(command.config.usages) ? command.config.usages : ""}`, command.config.commandCategory, command.config.cooldowns, ((command.config.hasPermssion == 0) ? getText("user") : (command.config.hasPermssion == 1) ? getText("adminGroup") : getText("adminBot")), command.config.credits), threadID, messageID);
+	return api.sendMessage(getText("moduleInfo", command.config.name, command.config.description,
+		`${prefix}${command.config.name} ${(command.config.usages) ? command.config.usages : ""}`,
+		command.config.commandCategory, command.config.cooldowns,
+		((command.config.hasPermssion == 0) ? getText("user") :
+			(command.config.hasPermssion == 1) ? getText("adminGroup") : getText("adminBot")),
+		command.config.credits), threadID, messageID);
 };
