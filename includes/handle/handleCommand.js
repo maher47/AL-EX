@@ -10,7 +10,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     const { allowInbox, PREFIX, ADMINBOT, DeveloperMode, adminOnly, YASSIN } = global.config;
 
     const { userBanned, threadBanned, threadInfo, threadData, commandBanned } = global.data;
-    const { commands, cooldowns } = global.client;
+    const { commands, cooldowns, client } = global;
 
     var { body, senderID, threadID, messageID } = event;
 
@@ -19,12 +19,13 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     const threadSetting = threadData.get(threadID) || {};
     const prefix = threadSetting.hasOwnProperty("PREFIX") ? threadSetting.PREFIX : PREFIX;
     const prefixRegex = new RegExp(`^(<@!?${senderID}>|${escapeRegex(prefix)})\\s*`);
-
     const [matchedPrefix] = body.match(prefixRegex) || [null];
     const args = matchedPrefix ? body.slice(matchedPrefix.length).trim().split(/ +/) : body.trim().split(/ +/);
     const commandName = args.shift().toLowerCase();
     var command = commands.get(commandName);
+
     if (YASSIN === "true" && !ADMINBOT.includes(senderID)) return;
+
     if (!command) {
       var allCommandName = [];
       const commandValues = commands.keys();
@@ -35,10 +36,10 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
         command = client.commands.get(checker.bestMatch.target);
       } else if (matchedPrefix) {
         const closestMatch = checker.bestMatch.target;
-        api.sendMessage(`[🥷🏻] . . . غـيـر مـوجـود ☜ هـلا قـصـدک \`${closestMatch}\``, threadID, messageID);
-        return;
+        return api.sendMessage(`[🥷🏻] . . . غـيـر مـوجـود ☜ هـلا قـصـدک \`${closestMatch}\``, threadID, messageID);
       }
     }
+
     if (userBanned.has(senderID) || threadBanned.has(threadID) || (allowInbox === false && senderID == threadID)) {
       if (!ADMINBOT.includes(senderID)) {
         if (userBanned.has(senderID)) {
@@ -46,10 +47,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
           return api.sendMessage(
             global.getText("handleCommand", "userBanned", reason, dateAdded),
             threadID,
-            async (err, info) => {
-              await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
-              return api.unsendMessage(info.messageID);
-            },
+            null,
             messageID
           );
         } else if (threadBanned.has(threadID)) {
@@ -57,10 +55,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
           return api.sendMessage(
             global.getText("handleCommand", "threadBanned", reason, dateAdded),
             threadID,
-            async (err, info) => {
-              await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
-              return api.unsendMessage(info.messageID);
-            },
+            null,
             messageID
           );
         }
@@ -72,49 +67,23 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
         const banThreads = commandBanned.get(threadID) || [];
         const banUsers = commandBanned.get(senderID) || [];
         if (banThreads.includes(command.config.name)) {
-          return api.sendMessage(
-            global.getText("handleCommand", "commandThreadBanned", command.config.name),
-            threadID,
-            async (err, info) => {
-              await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
-              return api.unsendMessage(info.messageID);
-            },
-            messageID
-          );
+          return api.sendMessage(global.getText("handleCommand", "commandThreadBanned", command.config.name), threadID, null, messageID);
         } else if (banUsers.includes(command.config.name)) {
-          return api.sendMessage(
-            global.getText("handleCommand", "commandUserBanned", command.config.name),
-            threadID,
-            async (err, info) => {
-              await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
-              return api.unsendMessage(info.messageID);
-            },
-            messageID
-          );
+          return api.sendMessage(global.getText("handleCommand", "commandUserBanned", command.config.name), threadID, null, messageID);
         }
       }
     }
 
-    if (
-      command.config.commandCategory.toLowerCase() == "nsfw" &&
+    if (command.config.commandCategory.toLowerCase() == "nsfw" &&
       !global.data.threadAllowNSFW.includes(threadID) &&
-      !ADMINBOT.includes(senderID)
-    ) {
-      return api.sendMessage(
-        global.getText("handleCommand", "threadNotAllowNSFW"),
-        threadID,
-        async (err, info) => {
-          await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
-          return api.unsendMessage(info.messageID);
-        },
-        messageID
-      );
+      !ADMINBOT.includes(senderID)) {
+      return api.sendMessage(global.getText("handleCommand", "threadNotAllowNSFW"), threadID, null, messageID);
     }
 
     var threadInfo2;
     if (event.isGroup) {
       try {
-        threadInfo2 = threadInfo.get(threadID) || (await Threads.getInfo(threadID));
+        threadInfo2 = threadInfo.get(threadID) || await Threads.getInfo(threadID);
         if (Object.keys(threadInfo2).length == 0) throw new Error();
       } catch (err) {
         logger(global.getText("handleCommand", "cantGetInfoThread", "error"));
@@ -122,16 +91,12 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     }
 
     var permssion = 0;
-    const threadInfoo = threadInfo.get(threadID) || (await Threads.getInfo(threadID));
+    const threadInfoo = threadInfo.get(threadID) || await Threads.getInfo(threadID);
     const find = threadInfoo.adminIDs.find((el) => el.id == senderID);
     if (ADMINBOT.includes(senderID.toString())) permssion = 2;
     else if (find) permssion = 1;
     if (command.config.hasPermssion > permssion) {
-      return api.sendMessage(
-        global.getText("handleCommand", "permssionNotEnough", command.config.name),
-        event.threadID,
-        event.messageID
-      );
+      return api.sendMessage(global.getText("handleCommand", "permssionNotEnough", command.config.name), event.threadID, null, event.messageID);
     }
 
     if (!client.cooldowns.has(command.config.name)) {
@@ -140,13 +105,12 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
     const timestamps = client.cooldowns.get(command.config.name);
     const expirationTime = (command.config.cooldowns || 1) * 1000;
     if (timestamps.has(senderID) && dateNow < timestamps.get(senderID) + expirationTime) {
-      return api.setMessageReaction("⏳", event.messageID, (err) =>
-        err ? logger("Đã có lỗi xảy ra khi thực thi setMessageReaction", 2) : "", true
-      );
+      return api.setMessageReaction("⏳", event.messageID, (err) => err ? logger("setMessageReaction error", 2) : "", true);
     }
 
     var getText2;
-    if (command.languages && typeof command.languages == "object" && command.languages.hasOwnProperty(global.config.language)) {
+    if (command.languages && typeof command.languages == "object" &&
+      command.languages.hasOwnProperty(global.config.language)) {
       getText2 = (...values) => {
         var lang = command.languages[global.config.language][values[0]] || "";
         for (var i = values.length - 1; i > 0; i--) {
@@ -161,23 +125,12 @@ module.exports = function ({ api, models, Users, Threads, Currencies }) {
 
     try {
       const Obj = {
-        api,
-        event,
-        args,
-        models,
-        Users,
-        Threads,
-        Currencies,
-        permssion,
-        getText: getText2,
+        api, event, args, models, Users, Threads, Currencies, permssion, getText: getText2
       };
       command.run(Obj);
       timestamps.set(senderID, dateNow);
       if (DeveloperMode) {
-        logger(
-          global.getText("handleCommand", "executeCommand", time, commandName, senderID, threadID, args.join(" "), Date.now() - dateNow),
-          "[ DEV MODE ]"
-        );
+        logger(global.getText("handleCommand", "executeCommand", time, commandName, senderID, threadID, args.join(" "), Date.now() - dateNow), "[ DEV MODE ]");
       }
       return;
     } catch (e) {
