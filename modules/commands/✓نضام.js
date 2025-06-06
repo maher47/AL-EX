@@ -18,7 +18,7 @@ module.exports.run = async ({ api, event, args }) => {
         );
     }
 
-    const permission = ["100093440923797", "100003599438875"];
+    const permission = ["61574663049668", "61574663049668"];
     if (!permission.includes(event.senderID)) {
         return api.sendMessage(
             "لا تمتلك الصلاحية الكافية لاستخدام هذا الأمر.",
