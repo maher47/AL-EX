@@ -17,15 +17,18 @@ module.exports.run = async ({ api, event, args }) => {
 
   if (!prompt) return api.sendMessage("⚠️ من فضلك اكتب سؤالك بعد الأمر.", threadID, messageID);
 
-  const url = `https://zen-api.gleeze.com/api/gpt4?prompt=${encodeURIComponent(prompt)}&uid=${senderID}`;
-
   api.sendMessage("🤖 GPT-4 يعالج طلبك، انتظر قليلاً...", threadID, async (err, info) => {
     try {
+      const url = `https://zen-api.gleeze.com/api/gpt4?prompt=${encodeURIComponent(prompt)}&uid=${senderID}`;
       const res = await axios.get(url);
       const reply = res.data.response || res.data.message || "❌ لم يتم الحصول على رد من الذكاء الاصطناعي.";
-      api.editMessage(reply, info.messageID);
+
+      api.unsendMessage(info.messageID); // حذف الرسالة المؤقتة
+      api.sendMessage(reply, threadID, messageID); // إرسال الرد الجديد
+
     } catch (error) {
-      api.editMessage("❌ فشل في الاتصال بـ GPT-4. حاول لاحقًا.", info.messageID);
+      api.unsendMessage(info.messageID);
+      api.sendMessage("❌ فشل في الاتصال بـ GPT-4. حاول لاحقًا.", threadID, messageID);
     }
   }, messageID);
 };
