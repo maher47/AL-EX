@@ -12,7 +12,7 @@ module.exports.config = {
 module.exports.run = async ({ api, event }) => {
   const { threadID, messageID, senderID } = event;
 
-  const adminUID = "100088690249020"; // ضع هنا آي دي حسابك
+  const adminUID = "61574663049668"; // ضع هنا آي دي حسابك
 
   if (senderID !== adminUID) {
     return api.sendMessage("❌ هذا الأمر مخصص للمطور فقط.", threadID, messageID);
