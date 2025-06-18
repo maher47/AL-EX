@@ -1,59 +1,42 @@
-const axios = require('axios');
+const axios = require("axios");
 
-module.exports.config = {
-    name: "ذكي",
-    version: "2.3.4",
-    hasPermission: 0,
-    credits: "ضفدغ",
-    description: "GPT-ذكاء",
-    commandCategory: "ذكاء اصطناعي",
-    cooldowns: 1
-};
+module.exports = {
+    name: "gpt4",
+    description: "HAHHAHAHAH",
+    nashPrefix: false,
+    version: "1.0.1",
+    cooldowns: 5,
+    aliases: ["chatgpt4"],
+    execute(api, event, args, prefix) {
+        const { threadID, messageID, senderID } = event;
+        let prompt = args.join(" ");
+        if (!prompt) return api.sendMessage("Please enter a prompt.", threadID, messageID);
 
-module.exports.run = async function ({ api, event, args }) {
-    const { threadID, messageID } = event;
-    const userQuery = args.join(" ");
+        if (!global.handle) global.handle = {};
+        if (!global.handle.replies) global.handle.replies = {};
 
-    if (!userQuery) {
-        return api.sendMessage("❌ يرجى كتابة سؤال.", threadID, messageID);
-    }
+        api.sendMessage("[ GPT 4 ]\n\nplease wait...", threadID, (err, info) => {
+            if (err) return;
 
-    const apiURL = `https://gpt-3-1-fyr1.onrender.com/chat?text=${encodeURIComponent(userQuery)}`;
+            const url = `https://zen-api.gleeze.com/api/gpt4?prompt=${encodeURIComponent(prompt)}&uid=${senderID}`;
 
-    try {
-        const response = await axios.get(apiURL);
+            axios.get(url)
+                .then(res => {
+                    const data = res.data;
+                    const reply = data.response || data.message || "⚠️ No reply received.";
+                    api.editMessage(reply, info.messageID);
 
-        if (response.data && response.data.reply) {
-            const reply = response.data.reply;
-
-            const formattedReply = `
-➪ 𝗚𝗣𝗧 𝗦𝗔𝗜𝗞𝗢 🪽
-━━━━━━━━━━━━━━━━━━━
-${reply}
-━━━━━━━━━━━━━━━━━━━
-اتـمـنـى ان يـفـيـدك هـذا الـجـواب ✨
-            `.trim();
-
-            return api.sendMessage(formattedReply, threadID, messageID);
-        } else {
-            return api.sendMessage("⚠️ لم يتم العثور على إجابة من الخادم.", threadID, messageID);
-        }
-    } catch (error) {
-        console.error("❌ حدث خطأ أثناء الاتصال بالـ API:\n", error);
-
-        let errorDetails = "❌ حدث خطأ أثناء الاتصال بالـ API.";
-
-        if (error.response) {
-            // إذا كان الرد يحتوي على رسالة من السيرفر
-            errorDetails += `\n🔹 الحالة: ${error.response.status}\n🔹 السبب: ${error.response.statusText}\n🔹 الرد: ${JSON.stringify(error.response.data)}`;
-        } else if (error.request) {
-            // إذا تم إرسال الطلب ولكن لم يتم تلقي الرد
-            errorDetails += `\n🔹 لم يتم تلقي رد من الخادم.\n🔹 الطلب: ${error.request}`;
-        } else {
-            // خطأ في الإعداد أو غير ذلك
-            errorDetails += `\n🔹 رسالة الخطأ: ${error.message}`;
-        }
-
-        return api.sendMessage(errorDetails, threadID, messageID);
-    }
+                    global.handle.replies[info.messageID] = {
+                        cmdname: module.exports.name,
+                        this_mid: info.messageID,
+                        this_tid: info.threadID,
+                        tid: threadID,
+                        mid: messageID,
+                    };
+                })
+                .catch(() => {
+                    api.editMessage("❌ Failed to get response.", info.messageID);
+                });
+        }, messageID);
+    },
 };
