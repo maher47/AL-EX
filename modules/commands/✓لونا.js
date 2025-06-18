@@ -1,42 +1,31 @@
 const axios = require("axios");
 
-module.exports = {
-    name: "gpt4",
-    description: "HAHHAHAHAH",
-    nashPrefix: false,
-    version: "1.0.1",
-    cooldowns: 5,
-    aliases: ["chatgpt4"],
-    execute(api, event, args, prefix) {
-        const { threadID, messageID, senderID } = event;
-        let prompt = args.join(" ");
-        if (!prompt) return api.sendMessage("Please enter a prompt.", threadID, messageID);
+module.exports.config = {
+  name: "gpt4",
+  version: "1.0.1",
+  hasPermssion: 0,
+  credits: "مصطفى",
+  description: "استخدام GPT-4 للرد على الأسئلة.",
+  commandCategory: "ذكاء اصطناعي",
+  usages: "[سؤالك]",
+  cooldowns: 5
+};
 
-        if (!global.handle) global.handle = {};
-        if (!global.handle.replies) global.handle.replies = {};
+module.exports.run = async ({ api, event, args }) => {
+  const prompt = args.join(" ");
+  const { threadID, messageID, senderID } = event;
 
-        api.sendMessage("[ GPT 4 ]\n\nplease wait...", threadID, (err, info) => {
-            if (err) return;
+  if (!prompt) return api.sendMessage("⚠️ من فضلك اكتب سؤالك بعد الأمر.", threadID, messageID);
 
-            const url = `https://zen-api.gleeze.com/api/gpt4?prompt=${encodeURIComponent(prompt)}&uid=${senderID}`;
+  const url = `https://zen-api.gleeze.com/api/gpt4?prompt=${encodeURIComponent(prompt)}&uid=${senderID}`;
 
-            axios.get(url)
-                .then(res => {
-                    const data = res.data;
-                    const reply = data.response || data.message || "⚠️ No reply received.";
-                    api.editMessage(reply, info.messageID);
-
-                    global.handle.replies[info.messageID] = {
-                        cmdname: module.exports.name,
-                        this_mid: info.messageID,
-                        this_tid: info.threadID,
-                        tid: threadID,
-                        mid: messageID,
-                    };
-                })
-                .catch(() => {
-                    api.editMessage("❌ Failed to get response.", info.messageID);
-                });
-        }, messageID);
-    },
+  api.sendMessage("🤖 GPT-4 يعالج طلبك، انتظر قليلاً...", threadID, async (err, info) => {
+    try {
+      const res = await axios.get(url);
+      const reply = res.data.response || res.data.message || "❌ لم يتم الحصول على رد من الذكاء الاصطناعي.";
+      api.editMessage(reply, info.messageID);
+    } catch (error) {
+      api.editMessage("❌ فشل في الاتصال بـ GPT-4. حاول لاحقًا.", info.messageID);
+    }
+  }, messageID);
 };
