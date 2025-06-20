@@ -2,77 +2,77 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
-module.exports = {
-  name: "speech",
-  description: "تحويل النص إلى كلام باستخدام أصوات وأنماط مختلفة",
-  nashPrefix: false,
+module.exports.config = {
+  name: "صوت",
   version: "1.0.1",
+  hasPermssion: 0,
+  credits: "مصطفى",
+  description: "تحويل النص إلى كلام بصوت ونبرة محددة",
+  commandCategory: "أدوات",
+  usages: "<الصوت> | <النبرة> | <النص>",
   cooldowns: 15,
-  aliases: ["say", "talk", "tts"],
-  async execute(api, event, args, prefix) {
-    const { threadID, messageID } = event;
+  aliases: ["say", "talk", "tts"]
+};
 
-    if (args.length === 0) {
-      const example = `【 𝗡𝗔𝗦𝗛 】 𝗧𝗲𝘅𝘁 𝘁𝗼 𝗦𝗽𝗲𝗲𝗰𝗵 🗣️
+module.exports.run = async ({ api, event, args, prefix }) => {
+  const { threadID, messageID } = event;
+
+  if (args.length === 0) {
+    const example = `【 𝗡𝗔𝗦𝗛 】🗣️ تحويل النص إلى كلام
 ──────────────────
-🎤 𝗢𝗽𝘁𝗶𝗼𝗻𝘀 𝗼𝗳 𝗩𝗼𝗶𝗰𝗲:
+🎤 الأصوات:
 Alloy | Ash | Ballad | Coral | Echo | Fable | Onyx | Nova | Sage | Shimmer | Verse
 
-🎭 𝗧𝗼𝗻𝗲 / 𝗩𝗶𝗯𝗲:
+🎭 النبرات:
 Santa | True Crime Buff | Old-Timey | Robot | Eternal Optimist | Patient Teacher | Calm | NYC Cabbie | Dramatic
 
-📌 𝗘𝘅𝗮𝗺𝗽𝗹𝗲:
+📌 مثال:
 ${prefix}speech Ash | Calm | ماذا لو أحببت شخصاً لا يجب أن تحبه؟
 ──────────────────`;
-      return api.sendMessage(example, threadID, messageID);
-    }
-
-    const input = args.join(" ").split("|").map(i => i.trim());
-    if (input.length < 3) {
-      return api.sendMessage(`❌ تنسيق غير صحيح.\nالاستخدام: ${prefix}speech <الصوت> | <النبرة> | <النص>`, threadID, messageID);
-    }
-
-    const [voice, vibe, ...textArr] = input;
-    const text = textArr.join(" ");
-
-    api.sendMessage("⏳ جارٍ تحويل النص إلى صوت، الرجاء الانتظار...", threadID, async (err, info) => {
-      try {
-        const url = `https://zen-api.gleeze.com/api/openai-speech?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}&vibe=${encodeURIComponent(vibe)}`;
-        const res = await axios.get(url);
-        const audioUrl = res.data.audio;
-
-        if (!res.data.status || !audioUrl) throw new Error("فشل في إنشاء الصوت.");
-
-        const tempDir = path.join(__dirname, "temp");
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-        const filePath = path.join(tempDir, `speech_${Date.now()}.mp3`);
-        const writer = fs.createWriteStream(filePath);
-
-        const audioRes = await axios({
-          method: "GET",
-          url: audioUrl,
-          responseType: "stream",
-        });
-
-        audioRes.data.pipe(writer);
-        await new Promise((resolve, reject) => {
-          writer.on("finish", resolve);
-          writer.on("error", reject);
-        });
-
-        // حذف الرسالة المؤقتة ثم إرسال الصوت
-        api.unsendMessage(info.messageID);
-        const stream = fs.createReadStream(filePath);
-
-        api.sendMessage({ attachment: stream }, threadID, () => {
-          fs.unlinkSync(filePath);
-        });
-
-      } catch (error) {
-        console.error("Speech Error:", error.message);
-        api.unsendMessage(info.messageID);
-        api.sendMessage("❌ خطأ: " + error.message, threadID);
-      }
-    }, messageID);
+    return api.sendMessage(example, threadID, messageID);
   }
+
+  const input = args.join(" ").split("|").map(i => i.trim());
+  if (input.length < 3) {
+    return api.sendMessage(`❌ تنسيق غير صحيح.\nالاستخدام:\n${prefix}speech <الصوت> | <النبرة> | <النص>`, threadID, messageID);
+  }
+
+  const [voice, vibe, ...textArr] = input;
+  const text = textArr.join(" ");
+
+  api.sendMessage("⏳ جاري تحويل النص إلى صوت...", threadID, async (err, info) => {
+    try {
+      const url = `https://zen-api.gleeze.com/api/openai-speech?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}&vibe=${encodeURIComponent(vibe)}`;
+      const res = await axios.get(url);
+      const audioUrl = res.data.audio;
+
+      if (!res.data.status || !audioUrl) throw new Error("❌ فشل في توليد الصوت.");
+
+      const cacheDir = path.join(__dirname, "cache");
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
+      const filePath = path.join(cacheDir, `speech_${Date.now()}.mp3`);
+
+      const audioRes = await axios({
+        method: "GET",
+        url: audioUrl,
+        responseType: "stream",
+      });
+
+      const writer = fs.createWriteStream(filePath);
+      audioRes.data.pipe(writer);
+      await new Promise((resolve, reject) => {
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+      });
+
+      api.unsendMessage(info.messageID);
+      const stream = fs.createReadStream(filePath);
+      api.sendMessage({ attachment: stream }, threadID, () => fs.unlinkSync(filePath));
+
+    } catch (error) {
+      console.error("Speech Error:", error.message);
+      api.unsendMessage(info.messageID);
+      api.sendMessage("❌ حدث خطأ أثناء توليد الصوت:\n" + error.message, threadID);
+    }
+  }, messageID);
 };
