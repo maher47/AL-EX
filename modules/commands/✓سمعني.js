@@ -1,58 +1,85 @@
 const axios = require("axios");
+const FormData = require("form-data");
 const fs = require("fs");
 const path = require("path");
 
 module.exports = {
-  name: "tiktok",
-  description: "تحميل فيديو تيك توك بدون علامة مائية",
+  name: "fbdl",
+  description: "تحميل فيديو فيسبوك",
+  version: "1.0.0",
   nashPrefix: false,
-  version: "1.0.1",
   cooldowns: 10,
-  aliases: ["ttdl", "tt", "tiktoknowm"],
-  async execute(api, event, args) {
-    const { threadID, messageID } = event;
-    const query = args.join(" ");
-    if (!query) return api.sendMessage("📌 الرجاء إدخال رابط أو عبارة بحث للفيديو.", threadID, messageID);
 
-    api.sendMessage("🔍 جاري البحث عن الفيديو...", threadID, async (err, info) => {
-      try {
-        const res = await axios.get(`https://zen-api.gleeze.com/api/tiktok?query=${encodeURIComponent(query)}`);
-        const data = res.data;
+  async execute(api, event) {
+    const { threadID, messageID, senderID, body } = event;
+    const regex = /https?:\/\/(?:www\.)?facebook\.com\/[^\s]+/;
+    const fbUrl = body.match(regex)?.[0];
 
-        if (!data || !data.no_watermark) throw new Error("❌ لم يتم العثور على فيديو صالح.");
+    if (!fbUrl) return;
 
-        const tempDir = path.join(__dirname, "temp");
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-        const fileName = `tt_${Date.now()}.mp4`;
-        const videoPath = path.join(tempDir, fileName);
-        const writer = fs.createWriteStream(videoPath);
-
-        const videoStream = await axios({
-          method: "GET",
-          url: data.no_watermark,
-          responseType: "stream"
+    api.sendMessage(
+      `نـظام ✅\nتـم رصد فيديو\nاكتب "تحميل" لتحميله 🤝🥀`,
+      threadID,
+      (err, info) => {
+        global.handleReply.push({
+          name: module.exports.name,
+          messageID: info.messageID,
+          author: senderID,
+          fbUrl,
         });
-
-        videoStream.data.pipe(writer);
-        await new Promise((resolve, reject) => {
-          writer.on("finish", resolve);
-          writer.on("error", reject);
-        });
-
-        // حذف رسالة "جارٍ التحميل"
-        api.unsendMessage(info.messageID);
-
-        const attachment = fs.createReadStream(videoPath);
-        api.sendMessage({
-          body: `🎬 العنوان: ${data.title}`,
-          attachment
-        }, threadID, () => fs.unlinkSync(videoPath));
-
-      } catch (e) {
-        console.error("TikTok Error:", e.message);
-        api.unsendMessage(info.messageID);
-        api.sendMessage("❌ حدث خطأ: " + e.message, threadID);
       }
-    }, messageID);
-  }
+    );
+  },
+
+  async handleReply({ api, event, handleReply }) {
+    const { threadID, messageID, senderID, body } = event;
+    if (senderID !== handleReply.author || body.toLowerCase() !== "تحميل") return;
+
+    api.sendMessage("⏳ جاري تحميل الفيديو، انتظر لحظة...", threadID);
+
+    try {
+      const form = new FormData();
+      form.append("k_exp", "1749611486");
+      form.append("k_token", "aa26d4a3b2bf844c8af6757179b85c10ab6975dacd30b55ef79d0d695f7ea764");
+      form.append("q", handleReply.fbUrl);
+      form.append("lang", "en");
+      form.append("web", "fdownloader.net");
+      form.append("v", "v2");
+
+      const headers = {
+        ...form.getHeaders(),
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "*/*",
+      };
+
+      const res = await axios.post("https://v3.fdownloader.net/api/ajaxSearch", form, { headers });
+      const html = res.data.data;
+      const link = html.match(/href="(https:\/\/[^"]+snapcdn[^"]+)"/)?.[1];
+
+      if (!link) throw new Error("لم يتم العثور على رابط التنزيل");
+
+      const tempPath = path.join(__dirname, "temp");
+      if (!fs.existsSync(tempPath)) fs.mkdirSync(tempPath);
+
+      const filePath = path.join(tempPath, `fb_${Date.now()}.mp4`);
+      const writer = fs.createWriteStream(filePath);
+
+      const videoStream = await axios({ method: "GET", url: link, responseType: "stream" });
+      videoStream.data.pipe(writer);
+
+      await new Promise((resolve, reject) => {
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+      });
+
+      api.sendMessage(
+        { body: "📥 إليك الفيديو المطلوب:", attachment: fs.createReadStream(filePath) },
+        threadID,
+        () => fs.unlinkSync(filePath)
+      );
+    } catch (err) {
+      console.error("Download error:", err.message);
+      api.sendMessage("❌ فشل في تحميل الفيديو، حاول مجددًا.", threadID, messageID);
+    }
+  },
 };
