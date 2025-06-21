@@ -1,34 +1,42 @@
-const axios = require("axios");
+const axios = require('axios');
 
 module.exports.config = {
-  name: "gpt4",
-  version: "1.0.1",
-  hasPermssion: 0,
-  credits: "مصطفى",
-  description: "استخدام GPT-4 للرد على الأسئلة.",
-  commandCategory: "ذكاء اصطناعي",
-  usages: "[سؤالك]",
-  cooldowns: 5
+    name: "auto_gpt",
+    version: "1.0.2",
+    hasPermission: 0,
+    credits: "Zeno (Modified by Cody)",
+    description: "يرد فقط على الأسئلة التي تنتهي بـ '؟' دون أي رموز أو مسافات قبلها",
+    commandCategory: "ذكاء اصطناعي",
+    cooldowns: 1
 };
 
-module.exports.run = async ({ api, event, args }) => {
-  const prompt = args.join(" ");
-  const { threadID, messageID, senderID } = event;
+module.exports.handleEvent = async function ({ api, event }) {
+    const { threadID, messageID, body } = event;
+    
+    if (!body) return;
 
-  if (!prompt) return api.sendMessage("⚠️ من فضلك اكتب سؤالك بعد الأمر.", threadID, messageID);
+    let userQuery = body.trim(); // إزالة المسافات الزائدة
 
-  api.sendMessage("🤖 GPT-4 يعالج طلبك، انتظر قليلاً...", threadID, async (err, info) => {
+    // التحقق مما إذا كانت الجملة تحتوي فقط على حروف وتنتهي بـ "؟"
+    if (!/^[\p{L}\p{N}\s]+؟$/u.test(userQuery)) return;
+
+    const apiURL = `https://gpt-3-1-kvgw.onrender.com/chat?text=${encodeURIComponent(userQuery)}`;
+
     try {
-      const url = `https://zen-api.gleeze.com/api/gpt4?prompt=${encodeURIComponent(prompt)}&uid=${senderID}`;
-      const res = await axios.get(url);
-      const reply = res.data.response || res.data.message || "❌ لم يتم الحصول على رد من الذكاء الاصطناعي.";
+        const response = await axios.get(apiURL);
 
-      api.unsendMessage(info.messageID); // حذف الرسالة المؤقتة
-      api.sendMessage(reply, threadID, messageID); // إرسال الرد الجديد
-
+        if (response.data) {
+            const reply = response.data.reply || response.data;
+            return api.sendMessage(`🥷 𝗚𝗣𝗧-4 ⓃⒾⓃⓄ 🗨️\n\n${reply}\n\nاتـمـنـى ان يـفـيـدك هـذا الـجـواب ✨`, threadID, messageID);
+        } else {
+            return api.sendMessage("⚠️ لم يتم العثور على إجابة.", threadID, messageID);
+        }
     } catch (error) {
-      api.unsendMessage(info.messageID);
-      api.sendMessage("❌ فشل في الاتصال بـ GPT-4. حاول لاحقًا.", threadID, messageID);
+        console.error("Error fetching data from API:", error);
+        return api.sendMessage("❌ حدث خطأ أثناء جلب الرد. حاول مرة أخرى لاحقًا.", threadID, messageID);
     }
-  }, messageID);
+};
+
+module.exports.run = function () {
+    return;
 };
